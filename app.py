@@ -1,43 +1,54 @@
-
 import streamlit as st
 import pandas as pd
+import numpy as np
 import pickle
 
-# Load model and metadata
-model = pickle.load(open("model/final_model.pkl", "rb"))
-selected_features = pickle.load(open("model/selected_features.pkl", "rb"))
-one_hot_columns = pickle.load(open("data/one_hot_columns.pkl", "rb"))
+# Load the model and required metadata
+with open("model/final_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-st.set_page_config(page_title="Gender Pay Gap Predictor", layout="centered")
+with open("model/selected_features.pkl", "rb") as f:
+    selected_features = pickle.load(f)
+
+with open("data/one_hot_columns.pkl", "rb") as f:
+    one_hot_columns = pickle.load(f)
+
+# App title
 st.title("💼 Gender Pay Gap Predictor")
-st.markdown("Use the Post-Double LASSO model to estimate compensation based on key factors.")
 
-# User input
-st.sidebar.header("Input Features")
-def user_input():
-    gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
-    job = st.sidebar.selectbox("Job Title", ["Data Scientist", "Software Engineer", "Student", "Manager"])
-    education = st.sidebar.selectbox("Education Level", ["Bachelor’s", "Master’s", "Doctoral", "Other"])
-    coding_exp = st.sidebar.slider("Years of Coding Experience", 0, 30, 3)
-    role_exp = st.sidebar.slider("Years in Current Role", 0, 30, 3)
-    employment = st.sidebar.selectbox("Employment Type", ["Full-time", "Part-time", "Self-employed", "Other"])
+st.write("Fill in the details below to estimate expected compensation based on the trained Post-Double LASSO model.")
 
-    return pd.DataFrame({
-        'Gender': [1 if gender == "Male" else 0],
-        'Job Title': [job],
-        'Education Level': [education],
-        'Years of Coding Experience': [coding_exp],
-        'Role Experience': [role_exp],
-        'Employment Type': [employment]
-    })
+# Input form
+with st.form("input_form"):
+    gender = st.selectbox("Gender", ["Female", "Male"])
+    coding_exp = st.slider("Years of Coding Experience", 0, 50, 5)
+    edu_level = st.selectbox("Education Level", ["Bachelor’s degree", "Master’s degree", "PhD", "Other"])
+    role_exp = st.slider("Years of Role Experience", 0, 50, 5)
+    job_title = st.selectbox("Job Title", ["Data Scientist", "Software Engineer", "ML Engineer", "Data Analyst", "Other"])
+    country = st.selectbox("Country", ["United States", "India", "United Kingdom", "Other"])
 
-df = user_input()
+    submitted = st.form_submit_button("Predict Salary")
 
-# Encode features
-input_encoded = pd.get_dummies(df).reindex(columns=one_hot_columns, fill_value=0)
+# Run prediction
+if submitted:
+    input_data = {
+        "Years_of_Coding_Experience": coding_exp,
+        "Years_of_Role_Experience": role_exp,
+        "Gender": 1 if gender == "Male" else 0,
+        "Education_Level_" + edu_level: 1,
+        "Job_Title_" + job_title: 1,
+        "Country_" + country: 1
+    }
 
-# Predict
-if st.button("Predict Salary"):
-    st.success(f"💰 Estimated Compensation: USD 88,000 (dummy output)")
-    st.write("Top features selected by Post-Double LASSO:")
-    st.write(selected_features)
+    input_df = pd.DataFrame([input_data])
+
+    # Ensure all required columns exist
+    for col in one_hot_columns:
+        if col not in input_df.columns:
+            input_df[col] = 0
+
+    # Match training column order
+    input_df = input_df[one_hot_columns]
+
+    prediction = model.predict(input_df)[0]
+    st.success(f"💰 Estimated Compensation: USD {prediction:,.2f}")
