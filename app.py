@@ -20,37 +20,43 @@ st.write("Use the Post-Double LASSO model to estimate compensation based on key 
 # Input form
 with st.form("input_form"):
     gender = st.selectbox("Gender", ["Female", "Male"])
-    job_title = st.selectbox("Job Title", ["Data Scientist", "Software Engineer", "ML Engineer", "Data Analyst", "Other"])
-    edu_level = st.selectbox("Education Level", ["Bachelor’s degree", "Master’s degree", "PhD", "Other"])
-    emp_type = st.selectbox("Employment Type", ["Full-time", "Part-time", "Contract", "Freelance", "Other"])
-    coding_exp = st.slider("Years of Coding Experience", 0, 50, 5)
-    role_exp = st.slider("Years in Current Role", 0, 50, 5)
+    job_title = st.selectbox("Job Title", ["Chief Officer", "Other"])
+    ml_exp = st.selectbox("ML Experience", [
+        "< 1 year", "1-2 years", "3-4 years", "5-7 years",
+        "8-10 years", "10-15 years", "15-20 years", "20+ years"
+    ])
+    role_exp = st.selectbox("Role Experience", [
+        "< 1 year", "1-2 years", "3-4 years", "5-10 years",
+        "10-15 years", "15-20 years", "20-25 years", "25-30 years", "30+ years"
+    ])
+    industry = st.selectbox("Industry", [
+        "Accounting/Finance", "Online Business/Internet-based Sales", "Other"
+    ])
+
     submitted = st.form_submit_button("Predict Salary")
 
-# On submit, prepare input and predict
 if submitted:
-    user_input = pd.DataFrame([{
-        "Gender": gender,
-        "Job_Title": job_title,
-        "Education_Level": edu_level,
-        "Employment_Type": emp_type,
-        "Years_of_Coding_Experience": coding_exp,
-        "Years_of_Role_Experience": role_exp
-    }])
+    # Manual one-hot encoding
+    data = {
+        f"Job_Title_{job_title}": 1,
+        f"ML_Experience_{ml_exp}": 1,
+        f"Role_Experience_{role_exp}": 1,
+        f"Industry_{industry}": 1,
+        "Gender": 1 if gender == "Male" else 0
+    }
 
-    # Encode input
-    input_encoded = pd.get_dummies(user_input)
+    input_df = pd.DataFrame([data])
 
-    # Match training columns
+    # Ensure all required columns are present
     for col in one_hot_columns:
-        if col not in input_encoded.columns:
-            input_encoded[col] = 0
+        if col not in input_df.columns:
+            input_df[col] = 0
 
-    input_encoded = input_encoded[one_hot_columns]
+    input_df = input_df[one_hot_columns]
+    prediction = model.predict(input_df)[0]
 
-    prediction = model.predict(input_encoded)[0]
     st.success(f"💰 Estimated Compensation: USD {prediction:,.2f}")
 
-# Show top 10 features
-st.write("Top 10 features selected by Post-Double LASSO:")
-st.write(selected_features[:10])
+# Show top features used
+st.write("Top 10 features used by the model:")
+st.write(selected_features)
